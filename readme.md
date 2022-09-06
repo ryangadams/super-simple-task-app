@@ -14,3 +14,30 @@ The rest api uses json-server to make it easy.
 4. you can run this using `npm start` now, but as soon as you close the session it will stop running. I used [pm2](https://pm2.keymetrics.io/)  to manage running it persistently. The command I used was `pm2 start npm --name "backend" -- start`
 5. And you're done (apart from cloudfront) - now you can visit your EC2 instances via IP and port to view your restAPI (e.g. http://34.249.119.149:8000/tasks - that IP is probably incorrect now).
 
+## Setting up the Website
+
+1. You'll need nginx installed. That should be possible via `sudo amazon-linux-extras install nginx1` and then starting it via `sudo systemctl start nginx`
+2. Your content root is `/usr/share/nginx/html` by default. Either put the website there, or modify your content root by editing the nginx conf at `/etc/nginx/nginx.conf` - my server conf section is copied below for reference. You may need to modify directory permissions of your new content root to let nginx read those files.
+
+
+```
+server {
+    listen       80;
+    listen       [::]:80;
+    server_name  _;
+    root         /home/ec2-user/webroot;
+    # This was the original
+    # root         /usr/share/nginx/html;
+
+    # Load configuration files for the default server block.
+    include /etc/nginx/default.d/*.conf;
+
+    error_page 404 /404.html;
+    location = /404.html {
+    }
+
+    error_page 500 502 503 504 /50x.html;
+    location = /50x.html {
+    }
+}
+```
