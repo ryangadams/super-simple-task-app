@@ -1,0 +1,55 @@
+html,
+body {
+    margin: 0;
+    padding: 0;
+}
+
+/* use viewport-relative units to cover page fully */
+body {
+    height: 95vh;
+    width: 99vw;
+    font-family: "American Typewriter", serif;
+}
+
+/* include border and padding in element width and height */
+* {
+    box-sizing: border-box;
+}
+
+
+.content {
+    height: calc(100% - 4em);
+    width: calc(100% - 4em);
+    margin: 1em 0 0 1em;
+    border: 3px solid rebeccapurple;
+    padding: 1em;
+}
+
+.content h1 {
+    text-align: center;
+}
+
+#tasks ul {
+    margin: 0;
+    padding: 0;
+}
+#tasks ul li {
+    padding:2px;
+    margin:1em;
+    list-style:square;
+    display: flex;
+}
+#tasks ul li.complete {
+    text-decoration: line-through;
+}
+#tasks ul li span {
+    display: block;
+    flex-grow: 2;
+}
+#tasks ul li:hover {
+    outline: 1px solid lightskyblue;
+}
+#tasks ul li span:hover {
+    cursor: pointer;
+}
+
