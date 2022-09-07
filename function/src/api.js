@@ -1,6 +1,13 @@
 import crypto from "node:crypto";
-import {DynamoDBClient, ScanCommand} from "@aws-sdk/client-dynamodb";
-import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
+import {
+    DeleteItemCommand,
+    DynamoDBClient,
+    GetItemCommand,
+    PutItemCommand,
+    ScanCommand,
+    UpdateItemCommand
+} from "@aws-sdk/client-dynamodb";
+import {marshall, unmarshall} from "@aws-sdk/util-dynamodb";
 
 
 // Set the AWS Region.
@@ -8,62 +15,77 @@ const REGION = "eu-west-1"; //e.g. "us-east-1"
 // Create an Amazon DynamoDB service client object.
 const ddbClient = new DynamoDBClient({ region: REGION });
 
+const defaultParams = {
+    TableName: "InstilTrainingRyansTasks"
+}
 
-
-const items = [
-    {id: "1", title: 'Remember the milk'}
-];
-
-function createTask(object) {
-
+async function createTask(object) {
     if (!object.title) {
         throw new Error('No Title found in request')
     }
     const newItem = {id: crypto.randomUUID(), title: object.title};
-    items.push(newItem);
-    return newItem;
+    const params = {
+        ...defaultParams,
+        Item: marshall(newItem)
+    }
+    try {
+        await ddbClient.send(new PutItemCommand(params));
+        return newItem;
+    } catch (e) {
+        return {"error": e.message}
+    }
 }
 
-function getTask(id) {
-    return items.find(task => task.id === id);
+async function getTask(id) {
+    const params = {
+        ...defaultParams,
+        Key: marshall({id})
+    }
+    const {Item} = await ddbClient.send(new GetItemCommand(params));
+    return unmarshall(Item);
 }
 
 async function getAllTasks() {
-    const params = {
-        TableName: "InstilTrainingRyansTasks",
-    };
-    const data = await ddbClient.send(new ScanCommand(params));
+    const data = await ddbClient.send(new ScanCommand(defaultParams));
     return data.Items.map(dbItem => unmarshall(dbItem));
 }
 
-function updateTask(id, newValues) {
-    const indexToChange = items.findIndex(task => task.id === id);
-    const taskToChange = items[indexToChange];
-    const newTask = {
-        ...taskToChange,
-        ...JSON.parse(newValues)
-    };
-    items.splice(indexToChange, 1, newTask)
-    return newTask;
-}
+async function updateTask(id, newValues) {
+    const keysToUpdate = Object.keys(newValues);
+    const toUpdateExpression = (key, index) => `${key} = :${index}`;
+    const toExpressionAttributeValue = (key, index) => [`:${index}`, marshall(newValues[key])];
 
-function replaceTask(id, newTask) {
-    const indexToChange = items.findIndex(task => task.id === id);
-    const itemToChange = {
-        ...(JSON.parse(newTask)),
-        id: id
+    const updateParams = {
+        ...defaultParams,
+        Key: marshall({id}),
+        UpdateExpression: "SET " + keysToUpdate.map(toUpdateExpression).join(", "),
+        ExpressionAttributeValues: Object.fromEntries(keysToUpdate.map(toExpressionAttributeValue)),
+        ReturnValues: 'ALL_NEW'
     }
-    items.splice(indexToChange, 1, itemToChange)
-    return itemToChange;
+    const {Attributes} = await ddbClient.send(new UpdateItemCommand(updateParams));
+    return unmarshall(Attributes);
 }
 
-function deleteTask(id) {
-    const indexToRemove = items.findIndex(task => task.id === id);
-    return items.splice(indexToRemove, 1)[0];
+async function replaceTask(id, newTask) {
+    const putParams = {
+        ...defaultParams,
+        Item: marshall({
+            ...newTask,
+            id: id
+        })
+    }
+    await ddbClient.send(new PutItemCommand(putParams));
+    return unmarshall(putParams.Item);
 }
 
-function isValidTaskId(id) {
-    return items.find(task => task.id === id.toString()) !== undefined;
+async function deleteTask(id) {
+    const deleteParams = {
+        ...defaultParams,
+        Key: marshall({id}),
+        ReturnValues: 'ALL_OLD'
+    }
+    const {Attributes} = await ddbClient.send(new DeleteItemCommand(deleteParams));
+    return unmarshall(Attributes);
 }
 
 export default {
@@ -72,6 +94,5 @@ export default {
     createTask: createTask,
     getTask: getTask,
     getAllTasks: getAllTasks,
-    isValidTaskId: isValidTaskId,
     deleteTask: deleteTask,
 }

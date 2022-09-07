@@ -24,18 +24,18 @@ export const handler = async (event) => {
                 return response(await api.getAllTasks());
         }
     }
-    if (api.isValidTaskId(id)) {
-        switch (event.requestContext.http.method) {
-            case "PATCH":
-                return response(api.updateTask(id, event.body));
-            case "POST":
-            case "PUT":
-                return response(api.replaceTask(id, event.body));
-            case "DELETE":
-                return response(api.deleteTask(id));
-            case "GET":
-                return response(api.getTask(id));
-        }
+    switch (event.requestContext.http.method) {
+        case "PATCH":
+            const updateData = JSON.parse(event.body);
+            return response(await api.updateTask(id, updateData));
+        case "POST":
+        case "PUT":
+            const newData = JSON.parse(event.body);
+            return response(await api.replaceTask(id, newData));
+        case "DELETE":
+            return response(await api.deleteTask(id));
+        case "GET":
+            return response(await api.getTask(id));
     }
     return response({error: "not-found"}, 404);
 };
