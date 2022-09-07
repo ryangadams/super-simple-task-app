@@ -1,11 +1,19 @@
-const crypto = require("node:crypto");
+import crypto from "node:crypto";
+import { DynamoDBClient, ScanCommand } from "@aws-sdk/client-dynamodb";
+
+// Set the AWS Region.
+const REGION = "eu-west-1"; //e.g. "us-east-1"
+// Create an Amazon DynamoDB service client object.
+const ddbClient = new DynamoDBClient({ region: REGION });
+
+
 
 const items = [
     {id: "1", title: 'Remember the milk'}
 ];
 
-function createTask(requestBody) {
-    const object = JSON.parse(requestBody);
+function createTask(object) {
+
     if (!object.title) {
         throw new Error('No Title found in request')
     }
@@ -18,19 +26,25 @@ function getTask(id) {
     return items.find(task => task.id === id);
 }
 
-function getAllTasks() {
-    return items;
+async function getAllTasks() {
+    const params = {
+        TableName: "InstilTrainingRyansTasks",
+    };
+    const data = await ddbClient.send(new ScanCommand(params));
+    return data;
+
+    // return items;
 }
 
 function updateTask(id, newValues) {
     const indexToChange = items.findIndex(task => task.id === id);
-    const itemToChange = items[indexToChange];
-    const newItem = {
-        ...itemToChange,
+    const taskToChange = items[indexToChange];
+    const newTask = {
+        ...taskToChange,
         ...JSON.parse(newValues)
     };
-    items.splice(indexToChange, 1, newItem)
-    return newItem;
+    items.splice(indexToChange, 1, newTask)
+    return newTask;
 }
 
 function replaceTask(id, newTask) {
@@ -52,10 +66,12 @@ function isValidTaskId(id) {
     return items.find(task => task.id === id.toString()) !== undefined;
 }
 
-exports.updateTask = updateTask;
-exports.replaceTask = replaceTask;
-exports.createTask = createTask;
-exports.getTask = getTask;
-exports.getAllTasks = getAllTasks;
-exports.isValidTaskId = isValidTaskId;
-exports.deleteTask = deleteTask;
+export default {
+    updateTask: updateTask,
+    replaceTask: replaceTask,
+    createTask: createTask,
+    getTask: getTask,
+    getAllTasks: getAllTasks,
+    isValidTaskId: isValidTaskId,
+    deleteTask: deleteTask,
+}

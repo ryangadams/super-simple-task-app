@@ -1,4 +1,4 @@
-const api = require("./api");
+import api from "./api.js";
 
 function response(responseObject, status = 200) {
     return {
@@ -7,7 +7,7 @@ function response(responseObject, status = 200) {
     }
 }
 
-exports.handler = async (event) => {
+export const handler = async (event) => {
     // /tasks/one
     const [nameSpace, id, ...extras] = event.rawPath.toLowerCase().split("/").filter(segment => segment);
     if (nameSpace !== "tasks") {
@@ -18,9 +18,10 @@ exports.handler = async (event) => {
     if (id === undefined) {
         switch (event.requestContext.http.method) {
             case "POST":
-                return response(api.createTask(event.body));
+                const newTask = JSON.parse(event.body);
+                return response(api.createTask(newTask));
             case "GET":
-                return response(api.getAllTasks());
+                return response(await api.getAllTasks());
         }
     }
     if (api.isValidTaskId(id)) {
