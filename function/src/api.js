@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import {DynamoDBClient, ScanCommand} from "@aws-sdk/client-dynamodb";
-// const { DynamoDBClient, ScanCommand } = require("@aws-sdk/client-dynamodb");
+import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
+
 
 // Set the AWS Region.
 const REGION = "eu-west-1"; //e.g. "us-east-1"
@@ -32,11 +33,7 @@ async function getAllTasks() {
         TableName: "InstilTrainingRyansTasks",
     };
     const data = await ddbClient.send(new ScanCommand(params));
-    return data.Items.map(dbItem => {
-        // a no good ugly transform
-        return Object.fromEntries(
-            Object.entries(dbItem).map(([key, value]) => [key, Object.values(value)[0]]));
-    });
+    return data.Items.map(dbItem => unmarshall(dbItem));
 }
 
 function updateTask(id, newValues) {
