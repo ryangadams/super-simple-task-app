@@ -1,5 +1,5 @@
 cd src
-zip -r ../build/function.zip *
+zip -ru ../build/function.zip *
 cd -
 aws --profile training lambda update-function-code \
   --function-name ryansApp \
