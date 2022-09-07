@@ -1,8 +1,4 @@
-const crypto = require('node:crypto');
-
-const items = [
-    {id: 1, title: 'Remember the milk'}
-];
+const api = require("./api");
 
 function response(responseObject, status=200) {
     return {
@@ -11,36 +7,8 @@ function response(responseObject, status=200) {
     }
 }
 
-function createTask(requestBody) {
-    const object = JSON.parse(requestBody);
-    if (!object.title) {
-        throw new Error('No Title found in request')
-    }
-    const newItem = {id: crypto.randomUUID(), title: object.title};
-    items.push(newItem);
-    return newItem;
-}
-
-function getItem(id) {
-    return items.find(task => task.id === id);
-}
-
-function getAllTasks() {
-    return items;
-}
-
-function updateTask(id, newValues) {
-    const indexToChange = items.findIndex(task => task.id === id);
-    const itemToChange = items[indexToChange];
-    const newItem = {
-        ...itemToChange,
-        ...JSON.parse(newValues)
-    };
-    items.splice(indexToChange, 1, newItem)
-    return newItem;
-}
-
 exports.handler = async (event) => {
+    // /tasks/one
     const [nameSpace, id, ...extras] = event.rawPath.toLowerCase().split("/").filter(segment => segment);
     if (nameSpace !== "tasks") {
         return response({error:`Unsupported namespace ${nameSpace}`
@@ -49,17 +17,21 @@ exports.handler = async (event) => {
     if (id === undefined) {
         switch (event.requestContext.http.method) {
             case "POST":
-                return response(createTask(event.body));
+                return response(api.createTask(event.body));
             case "GET":
-                return response(getAllTasks());
+                return response(api.getAllTasks());
         }
     }
-    if (items.find(task => task.id === id) !== undefined) {
+    if (api.isValidTaskId(id)) {
         switch (event.requestContext.http.method) {
+            case "PATCH":
+                return response(api.updateTask(id, event.body));
             case "POST":
-                return response(updateTask(id, event.body));
+                return response(api.replaceTask(id, event.body));
+            case "DELETE":
+                return response(api.deleteTask(id));
             case "GET":
-                return response(getItem(id));
+                return response(api.getTask(id));
         }
     }
     return response({error:"not-found"}, 404);
