@@ -7,35 +7,80 @@ function response(responseObject, status = 200) {
     }
 }
 
-export const handler = async (event) => {
-    // /tasks/one
-    const [nameSpace, id, ...extras] = event.rawPath.toLowerCase().split("/").filter(segment => segment);
-    if (nameSpace !== "tasks") {
-        return response({
-            error: `Unsupported namespace ${nameSpace}`
-        }, 500);
-    }
-    if (id === undefined) {
-        switch (event.requestContext.http.method) {
-            case "POST":
-                const newTask = JSON.parse(event.body);
-                return response(api.createTask(newTask));
-            case "GET":
-                return response(await api.getAllTasks());
+const match = (event) => {
+    return {
+        response: null,
+        pathParameters: {},
+        routes: [],
+        route: function(routes) {
+            for(const [method, path, action] of routes) {
+                this.add(method, path, action);
+            }
+        },
+        add: function(method, path, action) {
+            this.routes.push({method, path, action})
+        },
+        exec: async function() {
+            for (const {method, path, action} of this.routes) {
+                const response = await this.match(method, path, action);
+                console.log("DEBUG", method, path, response);
+                if (response !== null) {
+                    return response;
+                }
+            }
+            return response({error: "not-found"}, 404)
+        },
+        match: async function (method, path, action){
+            const segments = path.split("/");
+            const rawSegments = event.rawPath.split("/");
+            let isPathMatch = true;
+            if (segments.length !== rawSegments.length) {
+                return null;
+            }
+            segments.forEach((name, index) => {
+                if (name.startsWith(":")) {
+                    this.pathParameters[name.slice(1)] = rawSegments[index];
+                } else if (name !== rawSegments[index]) {
+                    isPathMatch = false;
+                }
+            });
+            if(event.requestContext.http.method === method && isPathMatch) {
+                return await action(this.pathParameters);
+            }
+            return null;
         }
     }
-    switch (event.requestContext.http.method) {
-        case "PATCH":
+}
+
+
+export const handler = async (event) => {
+    const route = match(event);
+    route.route([
+        ["GET", "/tasks", async () => {
+            return response(await api.getAllTasks());
+        }],
+        ["POST", "/tasks", async () => {
+            const newTask = JSON.parse(event.body);
+            return response(await api.createTask(newTask));
+        }],
+        ["GET", "/tasks/:id", async ({id}) => {
+            return response(await api.getTask(id));
+        }],
+        ["DELETE", "/tasks/:id", async ({id}) => {
+            return response(await api.deleteTask(id));
+        }],
+        ["PATCH", "/tasks/:id", async ({id}) => {
             const updateData = JSON.parse(event.body);
             return response(await api.updateTask(id, updateData));
-        case "POST":
-        case "PUT":
-            const newData = JSON.parse(event.body);
-            return response(await api.replaceTask(id, newData));
-        case "DELETE":
-            return response(await api.deleteTask(id));
-        case "GET":
-            return response(await api.getTask(id));
-    }
-    return response({error: "not-found"}, 404);
+        }],
+        ["PUT", "/tasks/:id", async ({id}) => {
+            const updateData = JSON.parse(event.body);
+            return response(await api.replaceTask(id, updateData));
+        }],
+        ["POST", "/tasks/:id", async ({id}) => {
+            const updateData = JSON.parse(event.body);
+            return response(await api.replaceTask(id, updateData));
+        }]
+    ]);
+    return await route.exec();
 };
